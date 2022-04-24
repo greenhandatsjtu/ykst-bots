@@ -27,11 +27,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
     let api_url = settings.get_string("API_URL")?;
     let token = settings.get_string("TREEHOLE_TOKEN")?;
-    println!("{}", api_url);
-    // let token = settings.get("YKST_TOKEN")?;
-    let channel = Endpoint::from_shared(api_url)?.connect().await?;
 
-    let mut client = TreeHoleClient::with_interceptor(channel, AuthInterceptor{token});
+    let channel = Endpoint::from_shared(api_url)?.connect().await?;
+    let mut client = TreeHoleClient::with_interceptor(channel, AuthInterceptor { token });
 
     println!("Ping server...");
     let request = tonic::Request::new(EmptyRequest {});
