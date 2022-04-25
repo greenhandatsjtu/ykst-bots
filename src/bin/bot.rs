@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let title = String::from("test title");
     let content = String::from("test content");
-    let thread = bot.create_thread(1, title, content).await?;
+    let thread = bot.create_thread(ykst_bot::Category::Main, title, content, None).await?;
     println!("{:#?}", thread);
 
     let content = String::from("test reply");

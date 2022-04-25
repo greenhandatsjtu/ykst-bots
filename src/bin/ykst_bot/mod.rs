@@ -8,6 +8,29 @@ pub mod model {
     tonic::include_proto!("model");
 }
 
+#[derive(Clone, Copy, Debug)]
+#[repr(u64)]
+pub enum Category {
+    // 综合版
+    Main = 1,
+    // 校园
+    School,
+    // 深夜食堂
+    Canteen,
+    // 情感
+    Emotion,
+    // 学业
+    Study,
+    // 科技
+    Tech,
+    // 值班室
+    DutyRoom,
+    // 游戏
+    Game,
+    // 深水区
+    Deep,
+}
+
 pub struct AuthInterceptor {
     token: String,
 }
@@ -59,13 +82,13 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
         Ok(threads)
     }
 
-    pub async fn create_thread(&mut self, category_id: u64, title: String, content: String) -> Result<Thread, Box<dyn std::error::Error>> {
+    pub async fn create_thread(&mut self, category: Category, title: String, content: String, tags: Option<Vec<Tag>>) -> Result<Thread, Box<dyn std::error::Error>> {
         let request = tonic::Request::new(Thread {
-            category_id,
+            category_id: category as u64,
             title,
             content,
             identity_code: self.identity.clone(),
-            tags: vec![],
+            tags: tags.unwrap_or(vec![]),
             ..Default::default()
         });
         let thread = self.client.put_thread(request).await?.into_inner();
