@@ -1,11 +1,7 @@
-use model::tree_hole_client::TreeHoleClient;
-use model::*;
+use ykst_bot::model::tree_hole_client::TreeHoleClient;
+use ykst_bot::model::*;
 use std::env;
 use reqwest;
-
-pub mod model {
-    tonic::include_proto!("model");
-}
 
 const API_URL: &str = "https://proxy.treehole.dyweb.sjtu.cn";
 
