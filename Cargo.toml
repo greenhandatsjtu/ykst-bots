@@ -1,18 +1,5 @@
-[package]
-name = "ykst-bot-demo"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-# tls-roots: Adds system trust roots to rustls-based gRPC clients using the rustls-native-certs crate.
-tonic = { version = "0.7", features = ["tls", "tls-roots"] }
-prost = "0.10"
-prost-types = "0.10"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
-reqwest = "0.11"
-config = "0.13"
-
-[build-dependencies]
-tonic-build = "0.7"
+[workspace]
+members = [
+    "bots",
+    "ykst_bot"
+]

@@ -1,10 +1,5 @@
-mod ykst_bot;
-
+use ykst_bot;
 use config::Config;
-
-pub mod model {
-    tonic::include_proto!("model");
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
