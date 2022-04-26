@@ -1,6 +1,3 @@
-[submodule "bots/ykst_client/treehole-space-protos"]
-	path = bots/ykst_client/treehole-space-protos
-	url = git@github.com:dyweb/treehole-space-protos.git
 [submodule "ykst_client/treehole-space-protos"]
 	path = ykst_client/treehole-space-protos
 	url = git@github.com:dyweb/treehole-space-protos.git
