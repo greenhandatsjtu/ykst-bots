@@ -1,13 +1,19 @@
-use ykst_bot::model::tree_hole_client::TreeHoleClient;
-use ykst_bot::model::*;
+use ykst_client::model::tree_hole_client::TreeHoleClient;
+use ykst_client::model::*;
 use std::env;
 use reqwest;
+use config::Config;
 
-const API_URL: &str = "https://proxy.treehole.dyweb.sjtu.cn";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = TreeHoleClient::connect(API_URL).await?;
+    let settings = Config::builder()
+        .add_source(config::File::with_name("config.yaml"))
+        .build()?;
+    let api_url = settings.get_string("AUTH_API_URL")?;
+    let redirect_url = settings.get_string("AUTH_REDIRECT_URL")?;
+
+    let mut client = TreeHoleClient::connect(api_url).await?;
 
     println!("Fetching oauth config...");
     let request = tonic::Request::new(OAuthConfigRequest {
@@ -18,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Getting code...");
     let http_client = reqwest::Client::new();
-    let url = format!("{}?response_type=code&client_id={}&scope={}&redirect_uri=https://web.treehole.space/auth/jaccount", config.authorize_url, config.client_id, config.scopes[0]);
+    let url = format!("{}?response_type=code&client_id={}&scope={}&redirect_uri={}", config.authorize_url, config.client_id, config.scopes[0], redirect_url);
     println!("{}", url);
     let cookie = env::var("JACCOUNT_COOKIE").expect("JACCOUNT_COOKIE env not presented");
     let response = http_client.get(url).header(reqwest::header::COOKIE, cookie).send().await?;
