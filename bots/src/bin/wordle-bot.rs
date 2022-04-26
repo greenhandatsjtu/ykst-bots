@@ -97,6 +97,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut checked = false; // flag to indicate if bot has checked time
     let mut floor = 0;
     let mut game: Option<Game> = None;
+    let mut guesses: Vec<String> = vec![String::new(); 6];
+    let mut n_try = 0;
     info!("start loop");
     loop {
         sleep(time::Duration::from_secs(2));
@@ -155,7 +157,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let g = Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES);
                         info!("game started, answer: {}", g.solution());
                         game = Some(g);
-                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母")).await;
+                        n_try = 0; // reset count of try
+                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母**加粗**\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~")).await;
                     } else {
                         // game already started
                         info!("game already started");
@@ -164,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 Action::Guess(guess) => {
                     if let Some(g) = game.as_mut() {
-                        let mut reply: String;
+                        let mut reply: String = String::new();
                         // validate guess
                         let result = g.guess(guess.as_str());
                         if result.is_err() {
@@ -173,17 +176,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let _ = client.reply_to_post(thread_id, Some(post_id), reply).await;
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
-                            reply = format!("{}", result.unwrap());
+                            let matches = result.unwrap();
+                            guesses[n_try].clear();
+                            for i in 0..5 {
+                                let ch = guess.chars().nth(i).unwrap();
+                                match &matches.0[i] {
+                                    cl_wordle::Match::Exact => write!(guesses[n_try], " **{}**", ch)?,
+                                    cl_wordle::Match::Close => write!(guesses[n_try], " {}", ch)?,
+                                    cl_wordle::Match::Wrong => write!(guesses[n_try], " ~~{}~~", ch)?
+                                }
+                            }
+                            // show all history guesses
+                            let mut i = 0;
+                            for gu in g.guesses() {
+                                write!(reply, "\n\n{} {}", gu.1, guesses[i])?;
+                                i += 1;
+                            }
+                            n_try += 1; // increment count of try
                         }
                         if let Some(end) = g.game_over() {
-                            reply.clear();
-                            let mut n_tries = 0;
-                            // show all guesses
-                            for gu in g.guesses() {
-                                n_tries += 1;
-                                write!(reply, "\n\n{}", gu.1)?;
-                            }
-                            reply = format!("## {} {}/6{}", g.solution(), n_tries, reply);
+                            // reply.clear();
+                            reply = format!("## {} {}/6{}", g.solution(), n_try, reply);
+                            n_try = 0;
                             if end.is_win() {
                                 info!("game ends, win");
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
