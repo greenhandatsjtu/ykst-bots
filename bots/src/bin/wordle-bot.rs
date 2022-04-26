@@ -67,6 +67,7 @@ impl FromStr for Action {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //TODO: add logging
     let settings = Config::builder()
         .add_source(config::File::with_name("config.yaml"))
         .build()?;
@@ -78,12 +79,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut bot = ykst_bot::Bot::new(api_url, token, identity).await?;
 
     let now = time::SystemTime::now();
-    let mut checked = false;
+    let mut checked = false; // flag to indicate if bot has checked time
     let mut floor = 0;
     let mut game: Option<Game> = None;
     loop {
         sleep(time::Duration::from_secs(1));
-        let replies = bot.get_thread_replies(thread_id, floor, 19).await?;
+        let replies;
+        if let Ok(res) = bot.get_thread_replies(thread_id, floor, 19).await {
+            replies = res;
+        } else {
+            continue;
+        }
         for post in replies.posts {
             floor = post.floor; // update post floor
             let content = post.content.as_str();
@@ -93,13 +99,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 post_id = model.id;
                 // check post time
                 if !checked {
-                    let post_time = &model.created_at.as_ref().unwrap();
-                    let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
-                    // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
-                    if since_the_epoch.as_secs() as i64 >= post_time.seconds {
-                        continue;
+                    if let Some(post_time) = &model.created_at.as_ref() {
+                        let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
+                        // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
+                        if since_the_epoch.as_secs() as i64 >= post_time.seconds {
+                            continue;
+                        } else {
+                            checked = true;
+                        }
                     } else {
-                        checked = true;
+                        continue;
                     }
                 }
             } else {
@@ -111,6 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // }
             let res = content.parse::<Action>();
             if res.is_err() {
+                // failed to parse action
                 let _ = bot.reply_to_post(thread_id, Some(post_id), format!("{}", res.err().unwrap())).await;
                 continue;
             }
@@ -118,15 +128,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match action {
                 Action::Start => {
                     if game.is_none() {
+                        // start game
                         game = Some(Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES));
                         let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈方格都会显示三种不同颜色来表示猜测结果和答案的接近程度：\n\n🟩代表该字母正确\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母")).await;
                     } else {
+                        // game already started
                         let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
                     }
                 }
                 Action::Guess(guess) => {
                     if let Some(g) = game.as_mut() {
                         let mut reply: String;
+                        // validate guess
                         let result = g.guess(guess.as_str());
                         if result.is_err() {
                             reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
@@ -139,6 +152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Some(end) = g.game_over() {
                             reply.clear();
                             let mut n_tries = 0;
+                            // show all guesses
                             for gu in g.guesses() {
                                 n_tries += 1;
                                 write!(reply, "\n\n{}", gu.1)?;
@@ -156,6 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         let _ = bot.reply_to_post(thread_id, Some(post_id), reply).await;
                     } else {
+                        // game not started
                         let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
                     }
                 }
