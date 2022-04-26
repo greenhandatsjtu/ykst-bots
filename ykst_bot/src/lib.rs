@@ -95,6 +95,17 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
         Ok(thread)
     }
 
+    pub async fn reply_to_post(&mut self, thread_id: u64, content: String) -> Result<Post, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(Post {
+            thread_id,
+            content,
+            identity_code: self.identity.clone(),
+            ..Default::default()
+        });
+        let post = self.client.put_post(request).await?.into_inner();
+        Ok(post)
+    }
+
     pub async fn reply_to_thread(&mut self, thread_id: u64, content: String) -> Result<Post, Box<dyn std::error::Error>> {
         let request = tonic::Request::new(Post {
             thread_id,
@@ -106,7 +117,7 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
         Ok(post)
     }
 
-    pub async fn get_thread_replies(&mut self, thread_id: u64,last: u64, size: u32) -> Result<PostsResponse, Box<dyn std::error::Error>> {
+    pub async fn get_thread_replies(&mut self, thread_id: u64, last: u64, size: u32) -> Result<PostsResponse, Box<dyn std::error::Error>> {
         let request = tonic::Request::new(PostsQueryRequest {
             thread_id,
             last,
@@ -115,5 +126,23 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
         });
         let posts = self.client.get_thread_posts(request).await?.into_inner();
         Ok(posts)
+    }
+
+    pub async fn appreciate_thread(&mut self, thread_id: u64, amount: i32) -> Result<Thread, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(AppreciateRequest {
+            id: thread_id,
+            amount,
+        });
+        let thread = self.client.appreciate_thread(request).await?.into_inner();
+        Ok(thread)
+    }
+
+    pub async fn appreciate_post(&mut self, post_id: u64, amount: i32) -> Result<Post, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(AppreciateRequest {
+            id: post_id,
+            amount,
+        });
+        let post = self.client.appreciate_post(request).await?.into_inner();
+        Ok(post)
     }
 }
