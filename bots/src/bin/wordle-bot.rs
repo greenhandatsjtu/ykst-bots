@@ -160,9 +160,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             reply = format!("## {} {}/6{}", g.solution(), n_tries, reply);
                             if end.is_win() {
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
-                                if let Some(model) = &post.model {
-                                    let _ = bot.appreciate_post(model.id, 1).await;
-                                }
+                                let _ = bot.appreciate_post(post_id, 1).await;
                             } else {
                                 write!(reply, "\n\n 游戏结束，再接再厉💪")?;
                             }
