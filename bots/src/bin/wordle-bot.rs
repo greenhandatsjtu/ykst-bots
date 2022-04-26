@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if res.is_err() {
                 // failed to parse action
                 info!("failed to parse action");
-                let _ = client.reply_to_post(thread_id, Some(post_id), format!("{}", res.err().unwrap())).await;
+                let _ = client.reply_to_thread(thread_id, format!("{}", res.err().unwrap())).await;
                 continue;
             }
             let action = res.unwrap();
@@ -162,11 +162,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         info!("game started, answer: {}", g.solution());
                         game = Some(g);
                         n_try = 0; // reset count of try
-                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母**加粗**\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~")).await;
+                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母**加粗**\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~")).await;
                     } else {
                         // game already started
                         info!("game already started");
-                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
+                        let _ = client.reply_to_thread(thread_id, String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
                     }
                 }
                 Action::Guess(guess) => {
@@ -177,7 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if result.is_err() {
                             info!("invalid guess");
                             reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
-                            let _ = client.reply_to_post(thread_id, Some(post_id), reply).await;
+                            let _ = client.reply_to_thread(thread_id, reply).await;
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
                             let matches = result.unwrap();
@@ -213,11 +213,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             game = None;
                         }
-                        let _ = client.reply_to_post(thread_id, Some(post_id), reply).await;
+                        let _ = client.reply_to_thread(thread_id, reply).await;
                     } else {
                         // game not started
                         info!("game not started");
-                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
+                        let _ = client.reply_to_thread(thread_id, String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
                     }
                 }
                 _ => {}
