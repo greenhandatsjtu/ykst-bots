@@ -25,9 +25,9 @@ enum ParseActionError {
 impl Display for ParseActionError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ParseActionError::InvalidWordError(word) => write!(f, "❌ {} 为无效词汇，请确保单词为5个英文字母组成", word),
-            ParseActionError::EmptyWordError => write!(f, "❌ 猜测单词为空"),
-            ParseActionError::UnsupportedActionError(action) => write!(f, "❌ {} 为不支持的动作", action)
+            ParseActionError::InvalidWordError(word) => write!(f, "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成", word),
+            ParseActionError::EmptyWordError => write!(f, "❌  猜测单词为空"),
+            ParseActionError::UnsupportedActionError(action) => write!(f, "❌  `{}` 为不支持的动作", action)
         }
     }
 }
@@ -88,9 +88,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             floor = post.floor; // update post floor
             let content = post.content.as_str();
             // println!("{} {}", floor, content);
-            // check post time
-            if !checked {
-                if let Some(model) = &post.model {
+            let post_id: u64;
+            if let Some(model) = &post.model {
+                post_id = model.id;
+                // check post time
+                if !checked {
                     let post_time = &model.created_at.as_ref().unwrap();
                     let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
                     // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
@@ -100,10 +102,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         checked = true;
                     }
                 }
+            } else {
+                continue;
             }
+            // skip bot replies
+            // if post.identity_code == bot.identity {
+            //     continue;
+            // }
             let res = content.parse::<Action>();
             if res.is_err() {
-                let _ = bot.reply_to_thread(thread_id, format!("{}", res.err().unwrap())).await;
+                let _ = bot.reply_to_post(thread_id, Some(post_id), format!("{}", res.err().unwrap())).await;
                 continue;
             }
             let action = res.unwrap();
@@ -111,9 +119,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Action::Start => {
                     if game.is_none() {
                         game = Some(Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES));
-                        let _ = bot.reply_to_thread(thread_id, String::from("Wordle started")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Wordle started")).await;
                     } else {
-                        let _ = bot.reply_to_thread(thread_id, String::from("Wordle already started")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Wordle already started")).await;
                     }
                 }
                 Action::Guess(guess) => {
@@ -141,9 +149,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             game = None;
                         }
-                        let _ = bot.reply_to_thread(thread_id, reply).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), reply).await;
                     } else {
-                        let _ = bot.reply_to_thread(thread_id, String::from("Please start game first")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Please start game first")).await;
                     }
                 }
                 _ => {}

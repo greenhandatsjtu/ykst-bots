@@ -52,7 +52,7 @@ impl Interceptor for AuthInterceptor {
 #[derive(Debug, Clone)]
 pub struct Bot<T> {
     client: TreeHoleClient<T>,
-    identity: String,
+    pub identity: String,
 }
 
 impl Bot<InterceptedService<Channel, AuthInterceptor>> {
@@ -95,9 +95,10 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
         Ok(thread)
     }
 
-    pub async fn reply_to_post(&mut self, thread_id: u64, content: String) -> Result<Post, Box<dyn std::error::Error>> {
+    pub async fn reply_to_post(&mut self, thread_id: u64, post_id: Option<u64>, content: String) -> Result<Post, Box<dyn std::error::Error>> {
         let request = tonic::Request::new(Post {
             thread_id,
+            reply_to_post_id: post_id,
             content,
             identity_code: self.identity.clone(),
             ..Default::default()
@@ -107,14 +108,7 @@ impl Bot<InterceptedService<Channel, AuthInterceptor>> {
     }
 
     pub async fn reply_to_thread(&mut self, thread_id: u64, content: String) -> Result<Post, Box<dyn std::error::Error>> {
-        let request = tonic::Request::new(Post {
-            thread_id,
-            content,
-            identity_code: self.identity.clone(),
-            ..Default::default()
-        });
-        let post = self.client.put_post(request).await?.into_inner();
-        Ok(post)
+        self.reply_to_post(thread_id, None, content).await
     }
 
     pub async fn get_thread_replies(&mut self, thread_id: u64, last: u64, size: u32) -> Result<PostsResponse, Box<dyn std::error::Error>> {
