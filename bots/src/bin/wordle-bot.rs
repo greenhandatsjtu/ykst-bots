@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use std::error::Error;
 use std::{fmt, time};
 use std::fmt::{Display, Write, Formatter};
@@ -34,6 +37,16 @@ impl Display for ParseActionError {
 
 impl Error for ParseActionError {}
 
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Action::Nop => write!(f, "nop"),
+            Action::Guess(guess) => write!(f, "/guess {}", guess),
+            Action::Start => write!(f, "/start")
+        }
+    }
+}
+
 // https://qubyte.codes/blog/parsing-input-from-stdin-to-structures-in-rust
 impl FromStr for Action {
     type Err = ParseActionError;
@@ -67,7 +80,8 @@ impl FromStr for Action {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //TODO: add logging
+    env_logger::init();
+    info!("read settings");
     let settings = Config::builder()
         .add_source(config::File::with_name("config.yaml"))
         .build()?;
@@ -76,18 +90,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let identity = settings.get_string("IDENTITY_CODE")?;
     let thread_id: u64 = settings.get_string("THREAD_ID")?.parse()?;
 
+    info!("connect to treehole");
     let mut client = ykst_client::Client::new(api_url, token, identity).await?;
 
     let now = time::SystemTime::now();
     let mut checked = false; // flag to indicate if bot has checked time
     let mut floor = 0;
     let mut game: Option<Game> = None;
+    info!("start loop");
     loop {
-        sleep(time::Duration::from_secs(1));
+        sleep(time::Duration::from_secs(2));
         let replies;
+        // info!("get threads replies");
         if let Ok(res) = client.get_thread_replies(thread_id, floor, 19).await {
             replies = res;
         } else {
+            // info!("no new replies");
             continue;
         }
         for post in replies.posts {
@@ -105,13 +123,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if since_the_epoch.as_secs() as i64 >= post_time.seconds {
                             continue;
                         } else {
+                            info!("new replies from now on");
                             checked = true;
                         }
                     } else {
+                        warn!("mode.created_at is none");
                         continue;
                     }
                 }
             } else {
+                warn!("post.model is none");
                 continue;
             }
             // skip bot replies
@@ -121,18 +142,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let res = content.parse::<Action>();
             if res.is_err() {
                 // failed to parse action
+                info!("failed to parse action");
                 let _ = client.reply_to_post(thread_id, Some(post_id), format!("{}", res.err().unwrap())).await;
                 continue;
             }
             let action = res.unwrap();
+            info!("floor: {} action: {}", floor, action);
             match action {
                 Action::Start => {
                     if game.is_none() {
                         // start game
-                        game = Some(Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES));
-                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈方格都会显示三种不同颜色来表示猜测结果和答案的接近程度：\n\n🟩代表该字母正确\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母")).await;
+                        let g = Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES);
+                        info!("game started, answer: {}", g.solution());
+                        game = Some(g);
+                        let _ = client.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母")).await;
                     } else {
                         // game already started
+                        info!("game already started");
                         let _ = client.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
                     }
                 }
@@ -142,13 +168,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // validate guess
                         let result = g.guess(guess.as_str());
                         if result.is_err() {
+                            info!("invalid guess");
                             reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
                             let _ = client.reply_to_post(thread_id, Some(post_id), reply).await;
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
                             reply = format!("{}", result.unwrap());
                         }
-                        println!("{}", g.solution());
                         if let Some(end) = g.game_over() {
                             reply.clear();
                             let mut n_tries = 0;
@@ -159,9 +185,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             reply = format!("## {} {}/6{}", g.solution(), n_tries, reply);
                             if end.is_win() {
+                                info!("game ends, win");
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
                                 let _ = client.appreciate_post(post_id, 1).await;
                             } else {
+                                info!("game ends, lose");
                                 write!(reply, "\n\n 游戏结束，再接再厉💪")?;
                             }
                             game = None;
@@ -169,6 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let _ = client.reply_to_post(thread_id, Some(post_id), reply).await;
                     } else {
                         // game not started
+                        info!("game not started");
                         let _ = client.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
                     }
                 }

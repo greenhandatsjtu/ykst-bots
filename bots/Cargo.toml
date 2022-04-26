@@ -13,3 +13,5 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ykst_client = {path = "../ykst_client" }
 cl-wordle = "0.4"
 rand = "0.8"
+log = "0.4.0"
+env_logger = "0.8.4"
