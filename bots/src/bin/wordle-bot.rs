@@ -26,8 +26,8 @@ impl Display for ParseActionError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ParseActionError::InvalidWordError(word) => write!(f, "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成", word),
-            ParseActionError::EmptyWordError => write!(f, "❌  猜测单词为空"),
-            ParseActionError::UnsupportedActionError(action) => write!(f, "❌  `{}` 为不支持的动作", action)
+            ParseActionError::EmptyWordError => write!(f, "❌  猜测单词为空，请输入5个字母组成的英文单词"),
+            ParseActionError::UnsupportedActionError(action) => write!(f, "❌  `{}` 为不支持的动作，请输入`/start`或`/guess guess`", action)
         }
     }
 }
@@ -83,7 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut game: Option<Game> = None;
     loop {
         sleep(time::Duration::from_secs(1));
-        let replies = bot.get_thread_replies(thread_id, floor, 10).await?;
+        let replies = bot.get_thread_replies(thread_id, floor, 19).await?;
         for post in replies.posts {
             floor = post.floor; // update post floor
             let content = post.content.as_str();
@@ -119,39 +119,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Action::Start => {
                     if game.is_none() {
                         game = Some(Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES));
-                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Wordle started")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈方格都会显示三种不同颜色来表示猜测结果和答案的接近程度：\n\n🟩代表该字母正确\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母")).await;
                     } else {
-                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Wordle already started")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
                     }
                 }
                 Action::Guess(guess) => {
                     if let Some(g) = game.as_mut() {
                         let mut reply: String;
                         let result = g.guess(guess.as_str());
-                        println!("{}", g.solution());
                         if result.is_err() {
-                            reply = String::from("Invalid word");
+                            reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
+                            let _ = bot.reply_to_post(thread_id, Some(post_id), reply).await;
+                            continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
                             reply = format!("{}", result.unwrap());
                         }
+                        println!("{}", g.solution());
                         if let Some(end) = g.game_over() {
-                            reply = g.solution().to_string();
+                            reply.clear();
+                            let mut n_tries = 0;
                             for gu in g.guesses() {
+                                n_tries += 1;
                                 write!(reply, "\n\n{}", gu.1)?;
                             }
+                            reply = format!("## {} {}/6{}", g.solution(), n_tries, reply);
                             if end.is_win() {
-                                write!(reply, "\n\n You win!")?;
+                                write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
                                 if let Some(model) = &post.model {
                                     let _ = bot.appreciate_post(model.id, 1).await;
                                 }
                             } else {
-                                write!(reply, "\n\n You lose.")?;
+                                write!(reply, "\n\n 游戏结束，再接再厉💪")?;
                             }
                             game = None;
                         }
                         let _ = bot.reply_to_post(thread_id, Some(post_id), reply).await;
                     } else {
-                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("Please start game first")).await;
+                        let _ = bot.reply_to_post(thread_id, Some(post_id), String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
                     }
                 }
                 _ => {}
