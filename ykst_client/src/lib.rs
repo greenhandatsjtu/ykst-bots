@@ -50,18 +50,18 @@ impl Interceptor for AuthInterceptor {
 }
 
 #[derive(Debug, Clone)]
-pub struct Bot<T> {
+pub struct Client<T> {
     client: TreeHoleClient<T>,
     pub identity: String,
 }
 
-impl Bot<InterceptedService<Channel, AuthInterceptor>> {
+impl Client<InterceptedService<Channel, AuthInterceptor>> {
     pub async fn new(api_url: String, token: String, identity: String) -> Result<Self, Box<dyn std::error::Error>> {
         let channel = Endpoint::from_shared(api_url)?.connect().await?;
         let client = TreeHoleClient::with_interceptor(channel, AuthInterceptor::new(token));
-        let mut bot = Bot { client, identity };
-        bot.ping().await?;
-        Ok(bot)
+        let mut c = Client { client, identity };
+        c.ping().await?;
+        Ok(c)
     }
 
     pub async fn ping(&mut self) -> Result<EmptyRequest, Box<dyn std::error::Error>> {

@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "bots",
-    "ykst_bot"
+    "ykst_client"
 ]
