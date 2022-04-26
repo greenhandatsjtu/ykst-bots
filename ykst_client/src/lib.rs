@@ -139,4 +139,13 @@ impl Client<InterceptedService<Channel, AuthInterceptor>> {
         let post = self.client.appreciate_post(request).await?.into_inner();
         Ok(post)
     }
+
+    pub async fn get_thread(&mut self, thread_id: u64) -> Result<Thread, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(PostsQueryRequest {
+            thread_id,
+            ..Default::default()
+        });
+        let thread = self.client.get_thread(request).await?.into_inner();
+        Ok(thread)
+    }
 }

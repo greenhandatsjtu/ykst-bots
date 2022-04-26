@@ -93,12 +93,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("connect to treehole");
     let mut client = ykst_client::Client::new(api_url, token, identity).await?;
 
-    let now = time::SystemTime::now();
-    let mut checked = false; // flag to indicate if bot has checked time
-    let mut floor = 0;
+    // let now = time::SystemTime::now();
+    // let mut checked = false; // flag to indicate if bot has checked time
     let mut game: Option<Game> = None;
     let mut guesses: Vec<String> = vec![String::new(); 6];
     let mut n_try = 0;
+
+    let thread = client.get_thread(thread_id).await?;
+    let mut floor = thread.reply_count;
+    info!("thread floor: {}", floor);
+
     info!("start loop");
     loop {
         sleep(time::Duration::from_secs(2));
@@ -118,21 +122,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(model) = &post.model {
                 post_id = model.id;
                 // check post time
-                if !checked {
-                    if let Some(post_time) = &model.created_at.as_ref() {
-                        let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
-                        // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
-                        if since_the_epoch.as_secs() as i64 >= post_time.seconds {
-                            continue;
-                        } else {
-                            info!("new replies from now on");
-                            checked = true;
-                        }
-                    } else {
-                        warn!("mode.created_at is none");
-                        continue;
-                    }
-                }
+                // if !checked {
+                //     if let Some(post_time) = &model.created_at.as_ref() {
+                //         let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
+                //         // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
+                //         if since_the_epoch.as_secs() as i64 >= post_time.seconds {
+                //             continue;
+                //         } else {
+                //             info!("new replies from now on");
+                //             checked = true;
+                //         }
+                //     } else {
+                //         warn!("mode.created_at is none");
+                //         continue;
+                //     }
+                // }
             } else {
                 warn!("post.model is none");
                 continue;
@@ -186,6 +190,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     cl_wordle::Match::Wrong => write!(guesses[n_try], " ~~{}~~", ch)?
                                 }
                             }
+                            write!(guesses[n_try], "    @{}", post.identity_code)?;
                             // show all history guesses
                             let mut i = 0;
                             for gu in g.guesses() {
