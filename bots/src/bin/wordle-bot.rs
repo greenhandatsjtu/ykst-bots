@@ -181,7 +181,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let w = Wordle::new();
                         info!("game started, answer: {}", w.game.solution());
                         wordle = Some(w);
-                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母***斜体加粗***\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await;
+                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n+ 🟩代表该字母正确，对应字母***斜体加粗***\n\n+ 🟨代表谜底里有该字母但位置不对\n\n+ ⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await;
                     } else {
                         // game already started
                         info!("game already started");
