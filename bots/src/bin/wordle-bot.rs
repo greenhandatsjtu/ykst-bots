@@ -240,7 +240,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             wordle = None;
                         } else {
                             // print alphabet
-                            write!(reply, "\n\n {}", w.alphabet)?;
+                            write!(reply, "\n\n___\n\n {}", w.alphabet)?;
                         }
                         let _ = client.reply_to_thread(thread_id, reply).await;
                     } else {
