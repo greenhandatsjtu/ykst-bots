@@ -47,6 +47,50 @@ impl Display for Action {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+struct Alphabet(pub [cl_wordle::Match; 26]);
+
+impl Display for Alphabet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut res: fmt::Result = Ok(());
+        for (i, m) in self.0.iter().enumerate() {
+            if i % 7 == 0 {
+                res = write!(f, "\n\n");
+                if res.is_err() {
+                    return res;
+                }
+            }
+            let ch = (i as u8 + 'A' as u8) as char;
+            match m {
+                cl_wordle::Match::Wrong => res = write!(f, "~~{}~~ ", ch),
+                cl_wordle::Match::Close => res = write!(f, "{} ", ch),
+                cl_wordle::Match::Exact => res = write!(f, "***{}*** ", ch)
+            }
+            if res.is_err() {
+                return res;
+            }
+        }
+        res
+    }
+}
+
+struct Wordle {
+    game: Game,
+    feedbacks: Vec<String>,
+    alphabet: Alphabet,
+}
+
+impl Wordle {
+    fn new() -> Self {
+        let game = Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES);
+        Wordle {
+            game,
+            feedbacks: vec![],
+            alphabet: Alphabet { 0: [cl_wordle::Match::Close; 26] },
+        }
+    }
+}
+
 // https://qubyte.codes/blog/parsing-input-from-stdin-to-structures-in-rust
 impl FromStr for Action {
     type Err = ParseActionError;
@@ -93,11 +137,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("connect to treehole");
     let mut client = ykst_client::Client::new(api_url, token, identity).await?;
 
-    // let now = time::SystemTime::now();
-    // let mut checked = false; // flag to indicate if bot has checked time
-    let mut game: Option<Game> = None;
-    let mut guesses: Vec<String> = vec![String::new(); 6];
-    let mut n_try = 0;
+    let mut wordle: Option<Wordle> = None;
 
     let thread = client.get_thread(thread_id).await?;
     let mut floor = thread.reply_count;
@@ -121,30 +161,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let post_id: u64;
             if let Some(model) = &post.model {
                 post_id = model.id;
-                // check post time
-                // if !checked {
-                //     if let Some(post_time) = &model.created_at.as_ref() {
-                //         let since_the_epoch = now.duration_since(time::UNIX_EPOCH)?;
-                //         // println!("{} {}", since_the_epoch.as_secs(), post_time.seconds);
-                //         if since_the_epoch.as_secs() as i64 >= post_time.seconds {
-                //             continue;
-                //         } else {
-                //             info!("new replies from now on");
-                //             checked = true;
-                //         }
-                //     } else {
-                //         warn!("mode.created_at is none");
-                //         continue;
-                //     }
-                // }
             } else {
                 warn!("post.model is none");
                 continue;
             }
-            // skip bot replies
-            // if post.identity_code == bot.identity {
-            //     continue;
-            // }
             let res = content.parse::<Action>();
             if res.is_err() {
                 // failed to parse action
@@ -156,13 +176,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("floor: {} action: {}", floor, action);
             match action {
                 Action::Start => {
-                    if game.is_none() {
+                    if wordle.is_none() {
                         // start game
-                        let g = Game::from_day(rand::thread_rng().gen(), cl_wordle::words::NYTIMES);
-                        info!("game started, answer: {}", g.solution());
-                        game = Some(g);
-                        n_try = 0; // reset count of try
-                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈的方格都会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母**加粗**\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~")).await;
+                        let w = Wordle::new();
+                        info!("game started, answer: {}", w.game.solution());
+                        wordle = Some(w);
+                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n🟩代表该字母正确，对应字母***斜体加粗***\n\n🟨代表谜底里有该字母但位置不对\n\n⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await;
                     } else {
                         // game already started
                         info!("game already started");
@@ -170,10 +189,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 Action::Guess(guess) => {
-                    if let Some(g) = game.as_mut() {
+                    if let Some(w) = wordle.as_mut() {
                         let mut reply: String = String::new();
                         // validate guess
-                        let result = g.guess(guess.as_str());
+                        let result = w.game.guess(guess.as_str());
                         if result.is_err() {
                             info!("invalid guess");
                             reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
@@ -181,28 +200,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
                             let matches = result.unwrap();
-                            guesses[n_try].clear();
-                            for i in 0..5 {
-                                let ch = guess.chars().nth(i).unwrap();
+                            let mut feedback = String::new();
+                            for (i, ch) in guess.chars().enumerate() {
                                 match &matches.0[i] {
-                                    cl_wordle::Match::Exact => write!(guesses[n_try], " **{}**", ch)?,
-                                    cl_wordle::Match::Close => write!(guesses[n_try], " {}", ch)?,
-                                    cl_wordle::Match::Wrong => write!(guesses[n_try], " ~~{}~~", ch)?
+                                    cl_wordle::Match::Exact => {
+                                        write!(feedback, " ***{}***", ch)?;
+                                        w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Exact;
+                                    }
+                                    cl_wordle::Match::Close => {
+                                        write!(feedback, " {}", ch)?;
+                                        w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Exact;
+                                    }
+                                    cl_wordle::Match::Wrong => {
+                                        write!(feedback, " ~~{}~~", ch)?;
+                                        if w.alphabet.0[ch as usize - 'a' as usize] == cl_wordle::Match::Close {
+                                            // When the answer is leant, and the guess is erase, the first e is Close and second `e` is Wrong
+                                            w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Wrong;
+                                        }
+                                    }
                                 }
                             }
-                            write!(guesses[n_try], "    @{}", post.identity_code)?;
+                            write!(feedback, "    @{}", post.identity_code)?;
+                            w.feedbacks.push(feedback); // add feedback to feedbacks
                             // show all history guesses
-                            let mut i = 0;
-                            for gu in g.guesses() {
-                                write!(reply, "\n\n{} {}", gu.1, guesses[i])?;
-                                i += 1;
+                            for (i, gu) in w.game.guesses().enumerate() {
+                                write!(reply, "\n\n{} {}", gu.1, w.feedbacks[i])?;
                             }
-                            n_try += 1; // increment count of try
                         }
-                        if let Some(end) = g.game_over() {
-                            // reply.clear();
-                            reply = format!("## {} {}/6{}", g.solution(), n_try, reply);
-                            n_try = 0;
+                        if let Some(end) = w.game.game_over() {
+                            reply = format!("## {} {}/6{}", w.game.solution(), w.feedbacks.len(), reply);
                             if end.is_win() {
                                 info!("game ends, win");
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
@@ -211,7 +237,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 info!("game ends, lose");
                                 write!(reply, "\n\n 游戏结束，再接再厉💪")?;
                             }
-                            game = None;
+                            wordle = None;
+                        } else {
+                            // print alphabet
+                            write!(reply, "\n\n {}", w.alphabet)?;
                         }
                         let _ = client.reply_to_thread(thread_id, reply).await;
                     } else {
