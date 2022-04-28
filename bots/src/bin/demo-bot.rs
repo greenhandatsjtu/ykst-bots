@@ -1,5 +1,6 @@
 use ykst_client;
 use config::Config;
+use ykst_client::model::RateType;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,18 +13,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = ykst_client::Client::new(api_url, token, identity).await?;
 
+    // get profile (user info)
     let _user = client.get_profile().await?;
 
+    // get user created threads
     let threads = client.get_user_threads().await?;
     println!("{:?}", threads.threads[0]);
 
+    // create a new thread
     let title = String::from("test title");
     let content = String::from("test content");
     let thread = client.create_thread(ykst_client::Category::Main, title, content, None).await?;
     println!("{:#?}", thread);
 
+    let thread_id = thread.model.unwrap().id;
+
+    // like thread
+    let _ = client.rate_thread(thread_id, RateType::Like).await?;
+
+    // reply to thread
     let content = String::from("test reply");
-    let post = client.reply_to_thread(5227, content).await?;
+    let post = client.reply_to_thread(thread_id, content).await?;
     println!("{:#?}", post);
 
     Ok(())
