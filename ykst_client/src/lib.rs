@@ -148,4 +148,13 @@ impl Client<InterceptedService<Channel, AuthInterceptor>> {
         let thread = self.client.get_thread(request).await?.into_inner();
         Ok(thread)
     }
+
+    pub async fn rate_thread(&mut self, thread_id: u64, rate_type: RateType) -> Result<Thread, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(RateRequest {
+            id: thread_id,
+            r#type: rate_type as i32,
+        });
+        let thread = self.client.rate_thread(request).await?.into_inner();
+        Ok(thread)
+    }
 }
