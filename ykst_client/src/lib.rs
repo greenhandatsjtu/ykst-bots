@@ -157,4 +157,19 @@ impl Client<InterceptedService<Channel, AuthInterceptor>> {
         let thread = self.client.rate_thread(request).await?.into_inner();
         Ok(thread)
     }
+
+    pub async fn rate_post(&mut self, post_id: u64, rate_type: RateType) -> Result<Post, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(RateRequest {
+            id: post_id,
+            r#type: rate_type as i32,
+        });
+        let post = self.client.rate_post(request).await?.into_inner();
+        Ok(post)
+    }
+
+    pub async fn checkin(&mut self) -> Result<FishResponse, Box<dyn std::error::Error>> {
+        let request = tonic::Request::new(EmptyRequest{});
+        let fish = self.client.check_in(request).await?.into_inner();
+        Ok(fish)
+    }
 }
