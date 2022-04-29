@@ -16,6 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // get profile (user info)
     let _user = client.get_profile().await?;
 
+    // check in
+    let _ = client.checkin().await;
+
     // get user created threads
     let threads = client.get_user_threads().await?;
     println!("{:?}", threads.threads[0]);
@@ -35,6 +38,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let content = String::from("test reply");
     let post = client.reply_to_thread(thread_id, content).await?;
     println!("{:#?}", post);
+
+    // like post
+    let post_id = post.model.unwrap().id;
+    let _ = client.rate_post(post_id, RateType::Like).await?;
 
     Ok(())
 }
