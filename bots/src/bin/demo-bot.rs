@@ -24,24 +24,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", threads.threads[0]);
 
     // create a new thread
-    // let title = String::from("test title");
-    // let content = String::from("test content");
-    // let thread = client.create_thread(ykst_client::Category::Main, title, content, None).await?;
-    // println!("{:#?}", thread);
+    let title = String::from("test title");
+    let content = String::from("test content");
+    let thread = client
+        .create_thread(ykst_client::Category::Main, title, content, None)
+        .await?;
+    println!("{:#?}", thread);
 
-    // let thread_id = thread.model.unwrap().id;
+    let thread_id = thread.model.unwrap().id;
 
     // like thread
-    // let _ = client.rate_thread(thread_id, RateType::Like).await?;
+    let _ = client.rate_thread(thread_id, RateType::Like).await?;
 
     // reply to thread
-    // let content = String::from("test reply");
-    // let post = client.reply_to_thread(thread_id, content).await?;
-    // println!("{:#?}", post);
+    let content = String::from("test reply");
+    let post = client.reply_to_thread(thread_id, content).await?;
+    println!("{:#?}", post);
 
     // like post
-    // let post_id = post.model.unwrap().id;
-    // let _ = client.rate_post(post_id, RateType::Like).await?;
+    let post_id = post.model.unwrap().id;
+    let _ = client.rate_post(post_id, RateType::Like).await?;
 
     Ok(())
 }

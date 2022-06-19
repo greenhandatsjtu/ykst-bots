@@ -66,8 +66,16 @@ impl Client<InterceptedService<Channel, AuthInterceptor>> {
         api_url: String,
         token: String,
         identity: String,
+        timeout: Option<u64>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let channel = Endpoint::from_shared(api_url)?.connect().await?;
+        let channel = if let Some(timeout) = timeout {
+            Endpoint::from_shared(api_url)?
+                .timeout(Duration::from_secs(timeout))
+                .connect()
+                .await?
+        } else {
+            Endpoint::from_shared(api_url)?.connect().await?
+        };
         let client = TreeHoleClient::with_interceptor(channel, AuthInterceptor::new(token));
         let mut c = Client { client, identity };
         c.ping().await?;
