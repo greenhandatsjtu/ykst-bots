@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate log;
 
-use std::error::Error;
-use std::{fmt, time};
-use std::fmt::{Display, Write, Formatter};
-use std::str::FromStr;
-use std::thread::sleep;
-use ykst_client;
-use cl_wordle::{game::Game};
+use cl_wordle::game::Game;
 use config::Config;
 use rand::Rng;
+use std::error::Error;
+use std::fmt::{Display, Formatter, Write};
+use std::str::FromStr;
+use std::thread::sleep;
+use std::{fmt, time};
+use ykst_client;
 
 enum Action {
     Nop,
@@ -28,9 +28,17 @@ enum ParseActionError {
 impl Display for ParseActionError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ParseActionError::InvalidWordError(word) => write!(f, "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成", word),
-            ParseActionError::EmptyWordError => write!(f, "❌  猜测单词为空，请输入5个字母组成的英文单词"),
-            ParseActionError::UnsupportedActionError(action) => write!(f, "❌  `{}` 为不支持的动作，请输入`/start`或`/guess guess`", action)
+            ParseActionError::InvalidWordError(word) => {
+                write!(f, "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成", word)
+            }
+            ParseActionError::EmptyWordError => {
+                write!(f, "❌  猜测单词为空，请输入5个字母组成的英文单词")
+            }
+            ParseActionError::UnsupportedActionError(action) => write!(
+                f,
+                "❌  `{}` 为不支持的动作，请输入`/start`或`/guess guess`",
+                action
+            ),
         }
     }
 }
@@ -42,7 +50,7 @@ impl Display for Action {
         match self {
             Action::Nop => write!(f, "nop"),
             Action::Guess(guess) => write!(f, "/guess {}", guess),
-            Action::Start => write!(f, "/start")
+            Action::Start => write!(f, "/start"),
         }
     }
 }
@@ -64,7 +72,7 @@ impl Display for Alphabet {
             match m {
                 cl_wordle::Match::Wrong => res = write!(f, "~~{}~~ ", ch),
                 cl_wordle::Match::Close => res = write!(f, "{} ", ch),
-                cl_wordle::Match::Exact => res = write!(f, "***{}*** ", ch)
+                cl_wordle::Match::Exact => res = write!(f, "***{}*** ", ch),
             }
             if res.is_err() {
                 return res;
@@ -86,7 +94,9 @@ impl Wordle {
         Wordle {
             game,
             feedbacks: vec![],
-            alphabet: Alphabet { 0: [cl_wordle::Match::Close; 26] },
+            alphabet: Alphabet {
+                0: [cl_wordle::Match::Close; 26],
+            },
         }
     }
 }
@@ -113,7 +123,11 @@ impl FromStr for Action {
                         return Err(ParseActionError::EmptyWordError);
                     }
                 }
-                _ => return Err(ParseActionError::UnsupportedActionError(tokens[0].to_string()))
+                _ => {
+                    return Err(ParseActionError::UnsupportedActionError(
+                        tokens[0].to_string(),
+                    ))
+                }
             }
         } else {
             action = Action::Nop
@@ -169,7 +183,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if res.is_err() {
                 // failed to parse action
                 info!("failed to parse action");
-                let _ = client.reply_to_thread(thread_id, format!("{}", res.err().unwrap())).await;
+                let _ = client
+                    .reply_to_thread(thread_id, format!("{}", res.err().unwrap()))
+                    .await;
                 continue;
             }
             let action = res.unwrap();
@@ -185,7 +201,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         // game already started
                         info!("game already started");
-                        let _ = client.reply_to_thread(thread_id, String::from("❌  游戏已经开始，请输入`/guess guess`猜词")).await;
+                        let _ = client
+                            .reply_to_thread(
+                                thread_id,
+                                String::from("❌  游戏已经开始，请输入`/guess guess`猜词"),
+                            )
+                            .await;
                     }
                 }
                 Action::Guess(guess) => {
@@ -195,7 +216,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let result = w.game.guess(guess.as_str());
                         if result.is_err() {
                             info!("invalid guess");
-                            reply = format!("❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效", guess);
+                            reply = format!(
+                                "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效",
+                                guess
+                            );
                             let _ = client.reply_to_thread(thread_id, reply).await;
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
@@ -205,30 +229,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 match &matches.0[i] {
                                     cl_wordle::Match::Exact => {
                                         write!(feedback, " ***{}***", ch)?;
-                                        w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Exact;
+                                        w.alphabet.0[ch as usize - 'a' as usize] =
+                                            cl_wordle::Match::Exact;
                                     }
                                     cl_wordle::Match::Close => {
                                         write!(feedback, " {}", ch)?;
-                                        w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Exact;
+                                        w.alphabet.0[ch as usize - 'a' as usize] =
+                                            cl_wordle::Match::Exact;
                                     }
                                     cl_wordle::Match::Wrong => {
                                         write!(feedback, " ~~{}~~", ch)?;
-                                        if w.alphabet.0[ch as usize - 'a' as usize] == cl_wordle::Match::Close {
+                                        if w.alphabet.0[ch as usize - 'a' as usize]
+                                            == cl_wordle::Match::Close
+                                        {
                                             // When the answer is leant, and the guess is erase, the first e is Close and second `e` is Wrong
-                                            w.alphabet.0[ch as usize - 'a' as usize] = cl_wordle::Match::Wrong;
+                                            w.alphabet.0[ch as usize - 'a' as usize] =
+                                                cl_wordle::Match::Wrong;
                                         }
                                     }
                                 }
                             }
                             write!(feedback, "    @{}", post.identity_code)?;
                             w.feedbacks.push(feedback); // add feedback to feedbacks
-                            // show all history guesses
+                                                        // show all history guesses
                             for (i, gu) in w.game.guesses().enumerate() {
                                 write!(reply, "\n\n{} {}", gu.1, w.feedbacks[i])?;
                             }
                         }
                         if let Some(end) = w.game.game_over() {
-                            reply = format!("## {} {}/6{}", w.game.solution(), w.feedbacks.len(), reply);
+                            reply = format!(
+                                "## {} {}/6{}",
+                                w.game.solution(),
+                                w.feedbacks.len(),
+                                reply
+                            );
                             if end.is_win() {
                                 info!("game ends, win");
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
@@ -246,7 +280,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         // game not started
                         info!("game not started");
-                        let _ = client.reply_to_thread(thread_id, String::from("❌  游戏还未开始，请回复`/start`以开始游戏")).await;
+                        let _ = client
+                            .reply_to_thread(
+                                thread_id,
+                                String::from("❌  游戏还未开始，请回复`/start`以开始游戏"),
+                            )
+                            .await;
                     }
                 }
                 _ => {}

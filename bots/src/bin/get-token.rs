@@ -1,9 +1,8 @@
+use config::Config;
+use reqwest;
+use std::env;
 use ykst_client::model::tree_hole_client::TreeHoleClient;
 use ykst_client::model::*;
-use std::env;
-use reqwest;
-use config::Config;
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,10 +23,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Getting code...");
     let http_client = reqwest::Client::new();
-    let url = format!("{}?response_type=code&client_id={}&scope={}&redirect_uri={}", config.authorize_url, config.client_id, config.scopes[0], redirect_url);
+    let url = format!(
+        "{}?response_type=code&client_id={}&scope={}&redirect_uri={}",
+        config.authorize_url, config.client_id, config.scopes[0], redirect_url
+    );
     println!("{}", url);
     let cookie = env::var("JACCOUNT_COOKIE").expect("JACCOUNT_COOKIE env not presented");
-    let response = http_client.get(url).header(reqwest::header::COOKIE, cookie).send().await?;
+    let response = http_client
+        .get(url)
+        .header(reqwest::header::COOKIE, cookie)
+        .send()
+        .await?;
     let url: String = response.url().to_string();
     let code = url.split("code=").collect::<Vec<&str>>()[1].to_string();
     println!("Code: {}", code);
