@@ -162,11 +162,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sleep(time::Duration::from_secs(2));
         let replies;
         // info!("get threads replies");
-        if let Ok(res) = client.get_thread_replies(thread_id, floor, 19).await {
-            replies = res;
-        } else {
-            // info!("no new replies");
-            continue;
+        match client.get_thread_replies(thread_id, floor, 19).await {
+            Ok(res) => replies = res,
+            Err(err) => {
+                error!("get_thread_replies: {}", err);
+                return Err(err);
+            }
         }
         for post in replies.posts {
             floor = post.floor; // update post floor
@@ -183,9 +184,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if res.is_err() {
                 // failed to parse action
                 info!("failed to parse action");
-                let _ = client
+                if let Err(err) = client
                     .reply_to_thread(thread_id, format!("{}", res.err().unwrap()))
-                    .await;
+                    .await
+                {
+                    error!("reply_to_thread: {}", err);
+                    return Err(err);
+                }
                 continue;
             }
             let action = res.unwrap();
@@ -197,16 +202,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let w = Wordle::new();
                         info!("game started, answer: {}", w.game.solution());
                         wordle = Some(w);
-                        let _ = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n+ 🟩代表该字母正确，对应字母***斜体加粗***\n\n+ 🟨代表谜底里有该字母但位置不对\n\n+ ⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await;
+                        if let Err(err) = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n+ 🟩代表该字母正确，对应字母***斜体加粗***\n\n+ 🟨代表谜底里有该字母但位置不对\n\n+ ⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await {
+                            error!("reply_to_thread: {}", err);
+                            return Err(err);
+                        }
                     } else {
                         // game already started
                         info!("game already started");
-                        let _ = client
+                        if let Err(err) = client
                             .reply_to_thread(
                                 thread_id,
                                 String::from("❌  游戏已经开始，请输入`/guess guess`猜词"),
                             )
-                            .await;
+                            .await
+                        {
+                            error!("reply_to_thread: {}", err);
+                            return Err(err);
+                        }
                     }
                 }
                 Action::Guess(guess) => {
@@ -220,7 +232,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 "❌  `{}` 为无效词汇，请确保单词为5个英文字母组成且有效",
                                 guess
                             );
-                            let _ = client.reply_to_thread(thread_id, reply).await;
+                            if let Err(err) = client.reply_to_thread(thread_id, reply).await {
+                                error!("reply_to_thread: {}", err);
+                                return Err(err);
+                            }
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
                             let matches = result.unwrap();
@@ -251,7 +266,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             write!(feedback, "    @{}", post.identity_code)?;
                             w.feedbacks.push(feedback); // add feedback to feedbacks
-                            // show all history guesses
+                                                        // show all history guesses
                             for (i, gu) in w.game.guesses().enumerate() {
                                 write!(reply, "\n\n{} {}", gu.1, w.feedbacks[i])?;
                             }
@@ -266,7 +281,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if end.is_win() {
                                 info!("game ends, win");
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
-                                let _ = client.appreciate_post(post_id, 1).await;
+                                if let Err(err) = client.appreciate_post(post_id, 1).await {
+                                    error!("appreciate_post: {}", err);
+                                    return Err(err);
+                                }
                             } else {
                                 info!("game ends, lose");
                                 write!(reply, "\n\n 游戏结束，再接再厉💪")?;
@@ -276,16 +294,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // print alphabet
                             write!(reply, "\n\n___\n\n {}", w.alphabet)?;
                         }
-                        let _ = client.reply_to_thread(thread_id, reply).await;
+                        if let Err(err) = client.reply_to_thread(thread_id, reply).await {
+                            error!("reply_to_thread: {}", err);
+                            return Err(err);
+                        }
                     } else {
                         // game not started
                         info!("game not started");
-                        let _ = client
+                        if let Err(err) = client
                             .reply_to_thread(
                                 thread_id,
                                 String::from("❌  游戏还未开始，请回复`/start`以开始游戏"),
                             )
-                            .await;
+                            .await
+                        {
+                            error!("reply_to_thread: {}", err);
+                            return Err(err);
+                        }
                     }
                 }
                 _ => {}
