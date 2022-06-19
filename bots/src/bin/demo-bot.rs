@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token = settings.get_string("TREEHOLE_TOKEN")?;
     let identity = settings.get_string("IDENTITY_CODE")?;
 
-    let mut client = ykst_client::Client::new(api_url, token, identity).await?;
+    let mut client = ykst_client::Client::new(api_url, token, identity, Some(5)).await?;
 
     // get profile (user info)
     let _user = client.get_profile().await?;

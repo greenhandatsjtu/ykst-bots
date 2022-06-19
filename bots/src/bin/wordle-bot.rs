@@ -126,7 +126,7 @@ impl FromStr for Action {
                 _ => {
                     return Err(ParseActionError::UnsupportedActionError(
                         tokens[0].to_string(),
-                    ))
+                    ));
                 }
             }
         } else {
@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let thread_id: u64 = settings.get_string("THREAD_ID")?.parse()?;
 
     info!("connect to treehole");
-    let mut client = ykst_client::Client::new(api_url, token, identity).await?;
+    let mut client = ykst_client::Client::new(api_url, token, identity, Some(5)).await?;
 
     let mut wordle: Option<Wordle> = None;
 
@@ -251,7 +251,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             write!(feedback, "    @{}", post.identity_code)?;
                             w.feedbacks.push(feedback); // add feedback to feedbacks
-                                                        // show all history guesses
+                            // show all history guesses
                             for (i, gu) in w.game.guesses().enumerate() {
                                 write!(reply, "\n\n{} {}", gu.1, w.feedbacks[i])?;
                             }
