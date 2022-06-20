@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let thread_id: u64 = settings.get_string("THREAD_ID")?.parse()?;
 
     info!("connect to treehole");
-    let mut client = ykst_client::Client::new(api_url, token, identity, Some(5)).await?;
+    let mut client = ykst_client::Client::new(api_url, token, identity, Some(20)).await?;
 
     let mut wordle: Option<Wordle> = None;
 
@@ -166,7 +166,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(res) => replies = res,
             Err(err) => {
                 error!("get_thread_replies: {}", err);
-                return Err(err);
+                sleep(time::Duration::from_secs(8));
+                continue;
+                // return Err(err);
             }
         }
         for post in replies.posts {
@@ -189,7 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await
                 {
                     error!("reply_to_thread: {}", err);
-                    return Err(err);
+                    // return Err(err);
                 }
                 continue;
             }
@@ -204,7 +206,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         wordle = Some(w);
                         if let Err(err) = client.reply_to_thread(thread_id, String::from("🚀  Wordle 游戏开始，请输入`/guess guess`猜词，谜底为5位单词，一共6次机会，首先猜对的用户获胜。\n\n每次反馈都包括猜测的历史记录和字母表，历史记录的方格会显示三种颜色，表示猜测和答案的接近程度：\n\n+ 🟩代表该字母正确，对应字母***斜体加粗***\n\n+ 🟨代表谜底里有该字母但位置不对\n\n+ ⬛代表谜底没有该字母，对应字母~~删除~~\n\n字母表中***斜体加粗***代表谜底里有该字母，~~删除~~代表谜底没有该字母")).await {
                             error!("reply_to_thread: {}", err);
-                            return Err(err);
+                            continue;
+                            // return Err(err);
                         }
                     } else {
                         // game already started
@@ -217,7 +220,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await
                         {
                             error!("reply_to_thread: {}", err);
-                            return Err(err);
+                            continue;
+                            // return Err(err);
                         }
                     }
                 }
@@ -234,7 +238,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             );
                             if let Err(err) = client.reply_to_thread(thread_id, reply).await {
                                 error!("reply_to_thread: {}", err);
-                                return Err(err);
+                                continue;
+                                // return Err(err);
                             }
                             continue; // continue to avoid panic when calling game_over() when there's no guess
                         } else {
@@ -283,7 +288,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 write!(reply, "\n\n 恭喜{}，小鱼干奉上🎉", post.identity_code)?;
                                 if let Err(err) = client.appreciate_post(post_id, 1).await {
                                     error!("appreciate_post: {}", err);
-                                    return Err(err);
+                                    continue;
+                                    // return Err(err);
                                 }
                             } else {
                                 info!("game ends, lose");
@@ -296,7 +302,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         if let Err(err) = client.reply_to_thread(thread_id, reply).await {
                             error!("reply_to_thread: {}", err);
-                            return Err(err);
+                            continue;
+                            // return Err(err);
                         }
                     } else {
                         // game not started
@@ -309,7 +316,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await
                         {
                             error!("reply_to_thread: {}", err);
-                            return Err(err);
+                            continue;
+                            // return Err(err);
                         }
                     }
                 }
